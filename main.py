@@ -13,13 +13,13 @@ import serial
 import time
 
 # arduino = serial.Serial(port='/dev/ttyACM0', baudrate=115200, timeout=.1)
+capture = cv.VideoCapture(0)
 click_points = []
+
 
 def get_points(event, x, y, flags, params):
     if event == cv.EVENT_LBUTTONDOWN:
         click_points.append((x,y))
-        print(click_points)
-        print(f'{x}, {y}')
 
 def mode_select():
     selection = input(
@@ -31,36 +31,57 @@ def mode_select():
     e) Color Identifier
     q) Quit
     : """)
-    if selection == 'a' or selection == 'A':
-        manual_control()
-    if selection == 'b' or selection == 'B':
-        setup_view()
+    frame_corners = setup_view()
 
-def manual_control():
+    if selection == 'a' or selection == 'A':
+        manual_control(frame_corners, 1)
+    if selection == 'b' or selection == 'B':
+        autonomous_control()
+
+def manual_control(frame_corners,quadrant):
     exited = False
     print('WASD Control')
-    while not exited:
-        key_input = input()
-        if key_input == 'w':
-            arduino.write(bytes('<10A>', 'utf-8'))
-            time.sleep(0.05)
-            print(arduino.readline())
+
+    while(True):
+        ret, frame = capture.read()
+        cv.imshow('Main Frame', frame)
+        k = cv.waitKey(1)
+        if k & 0xFF == ord('w'):
+            print('w')
+        if k & 0xFF == ord('a'):
+            print('a')
+        if k & 0xFF == ord('q'):
+            break
+
+    # while not exited:
+    #     key_input = input()
+    #     if key_input == 'w':
+    #         arduino.write(bytes('<10A>', 'utf-8'))
+    #         time.sleep(0.05)
+    #         print(arduino.readline())
+        
+
+def autonomous_control():
+    pass
 
 def setup_view():
     print('Select Corners (Top Left, Top Right, Bottom Right, Bottom Left)')
-    img = cv.imread('/home/siddn/Pictures/standard-grid.jpg')
-    img = cv.resize(img, (500,500))
+
+    # Create Window and Frame
     cv.namedWindow('Main View')
+    ret, frame = capture.read()
+
+    # Set Mouse Callback to get clicked points
     cv.setMouseCallback('Main View', get_points)
-    click_points = []
+    # Get Corner Points
     while len(click_points) < 4:
-        # print(click_points)
-        cv.imshow('Main View', img)
+        cv.imshow('Main View', frame)
         cv.waitKey(1)
-    frame_corners = click_points.copy()
-    print(frame_corners)
-    # cv.waitKey(0)
     cv.destroyAllWindows()
+    frame_corners = np.array(click_points)
+    print(frame_corners)
+    return frame_corners
+
 
 
 def main():
